@@ -41,6 +41,8 @@ public class MainActivity extends NfcSceneActivity {
 	    gd.setCornerRadius(0f);
 
 	    this.getLayout().get().setBackgroundDrawable(gd);
+
+	    
 	}
 	
 	protected void handleNfcScanned(String in, Activity a){ // Called from 'handleIntent' if intent is NFC.
