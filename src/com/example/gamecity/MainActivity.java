@@ -13,6 +13,9 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.View.OnTouchListener;
 import android.widget.Toast;
 
 public class MainActivity extends NfcSceneActivity {
@@ -42,9 +45,42 @@ public class MainActivity extends NfcSceneActivity {
 
 	    this.getLayout().get().setBackgroundDrawable(gd);
 
-	    
+	    this.getLayout().get().setOnTouchListener(new OnTouchListener(){
+			public boolean onTouchEvent(View v, MotionEvent event) {
+				
+				if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+						sceneMain.textMain.setText("TOUCH " + ++touchCount);
+				    } else if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
+				    	sceneMain.textMain.setText("RELEASE " + touchCount);
+				    }
+				return false;
+			}
+
+			@Override
+			public boolean onTouch(View v, MotionEvent event) {
+				// TODO Auto-generated method stub
+				return false;
+			}
+	    });
 	}
 	
+	public boolean held = false;
+	@Override
+    public boolean onTouchEvent(MotionEvent event) {
+		
+		if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+			sceneMain.textMain.setText("TOUCH " + ++touchCount);
+			held = true;
+	    } else if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
+	    	sceneMain.textMain.setText("RELEASE " + touchCount);
+	    	sceneMain.ScreenReleased();
+	    	held = false;
+	    }
+		
+        return super.onTouchEvent(event);
+    }
+	
+	int touchCount = 0;
 	protected void handleNfcScanned(String in, Activity a){ // Called from 'handleIntent' if intent is NFC.
 		//Toast.makeText((Context)a, in, Toast.LENGTH_LONG).show();
 		

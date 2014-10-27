@@ -11,7 +11,10 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.os.Handler;
 import android.view.Gravity;
+import android.widget.FrameLayout;
+import android.widget.ImageView.ScaleType;
 import android.widget.RelativeLayout;
+import android.widget.RelativeLayout.LayoutParams;
 import android.widget.Toast;
 
 import com.scenelibrary.classes.AccelerometerManager;
@@ -21,27 +24,28 @@ import com.scenelibrary.classes.Scene;
 import com.scenelibrary.classes.Objects.ImageObject;
 import com.scenelibrary.classes.Objects.TextObject;
 
+class vec2{
+	double x = 0;
+			double y = 0;
+	public vec2(){
+	}
+}
 public class SceneMain extends Scene{
 
    
    
    
    
-   double accelerationX = 0;
-   double accelerationY = 0;
-   double velocityX = 0;
-   double velocityY = 0;
+   vec2 acceleration = new vec2();
+   vec2 velocity = new vec2();
    
-   double ballOffsetX = 0;
-   double ballOffsetY = 0;
+   vec2 ballOffset = new vec2();
    
-   double ballBaseX = 0;
-   double ballBaseY = 0;
+   vec2 ballBase = new vec2();
    
    double ballHeight = 0;
    
-   double boundingX = 0;
-   double boundingY = 0;
+   double points = 0;
    double boundingRad = 0;
    
    private Handler handler = new Handler();
@@ -59,58 +63,72 @@ public class SceneMain extends Scene{
      @Override
      public void run() {
     	 
-       if (ballBaseX == 0 && box.getElement().getX() == 0)
+       if (ballBase.x == 0 && box.getElement().getX() == 0)
     	   return;
-       else if (ballBaseX == 0)
+       else if (ballBase.x == 0)
        {
-    	    ballBaseX = box.getElement().getX();
-			ballBaseY = box.getElement().getY();
-			ballBaseX += box.getWidth()/2;
-			ballBaseY += box.getHeight()/2;
-			ballBaseX -= ball.getWidth()/2;
-			ballBaseX += ball.getHeight()/2;
-			
-			boundingX = box.getElement().getWidth();
-			boundingY = box.getElement().getHeight();
-			
+    	    ballHeight = 0;
+    	    ballBase.x = box.getElement().getX();
+			ballBase.y = box.getElement().getY();
+			ballBase.x += box.getWidth()/2;
+			ballBase.y += box.getHeight()/2;
+			ballBase.x -= ball.getWidth()/2;
+			ballBase.y -= ball.getHeight()/2;
+			ballOffset.x = 0;
+			ballOffset.y = 0;
+			ball.getElement().setAlpha(1.f);
+			ball.setImage(R.drawable.ball);
+			ball.setAbsScaleX(Globals.screenDimensions.x/10);
 			boundingRad = (box.getWidth()/2);
+			timer.getElement().setAlpha(0.f);
+			addElementToView(timer);
        }
        
-       if (!boundingCircle(ballOffsetX, ballOffsetY, 0, 0, ball.getWidth()/2, box.getWidth()/2))
+       if (((MainActivity)activity).held && timerScale < 255 && ballHeight == 0){
+    	   timerScale++;
+    	   timer.setTextSize(timerScale/3.f);
+    	   timer.getElement().setAlpha(Math.abs(1.f-(timerScale/255.f)));
+    	   
+    	   if (timer.getElement().getAlpha() == 0.f)
+    	   {
+    		   ((MainActivity)activity).held = false;
+    		   updatePoints(-50);
+    	   }
+    	   return;
+       }
+       
+       if (!boundingCircle(ballOffset.x, ballOffset.y, 0, 0, ball.getWidth()/4, box.getWidth()/2))
        {
     	   ballHeight++;
-    	   textMain.setText("" + velocityX);
+    	   ball.getElement().setAlpha(Math.abs(1.f-((int)ballHeight*3/255.f)));
+    	   textMain.setText("" + velocity.x);
        }
        
        if (ballHeight == 0)
        {
-    	   textMain.setText("BallX: " + (int)ballOffsetX +
-    			   			"\nBallY: " + (int)ballOffsetY +
-    			   			"\nBoxX: " + (int)boundingX +
-    			   			"\nBoxY: " + (int)boundingY +
-    			   			"\nBallRad: " + (int)ball.getWidth() +
-    			   			"\nBoxRad: " + (int)box.getWidth());
 	       double accX = AccelerometerManager.getX();
 	       double accY = AccelerometerManager.getY();
 	
-	       velocityX += accX/20;
-	       velocityY += accY/20;
-	
-	       
-	
-	       
+	       velocity.x += accX/26;
+	       velocity.y += accY/26;
        }
        else if (ball.getWidth() > 5){
     	   ball.setAbsScaleX(ball.getWidth()-1);
     	   
-    	   velocityX -= velocityX/ball.getWidth();
-    	   velocityY -= velocityY/ball.getWidth();
+    	   velocity.x -= velocity.x/(50-Math.min(ballHeight, 20));
+    	   velocity.y -= velocity.y/(50-Math.min(ballHeight, 20));
+       }
+       if (ballHeight > 100)
+       {
+    	   ballBase.x = 0;
+    	   updatePoints(-150);
+    	   
        }
        
-       ballOffsetX -= velocityX;
-       ballOffsetY += velocityY;
+       ballOffset.x -= velocity.x;
+       ballOffset.y += velocity.y;
        
-       ball.getElement().setPadding((int)((ballBaseX) + ballOffsetX), (int)((ballBaseY) + ballOffsetY), 0, 0);
+       ball.getElement().setPadding((int)((ballBase.x) + ballOffset.x), (int)((ballBase.y) + ballOffset.y), 0, 0);
        //handler.postDelayed(this, 16);
      }
    
@@ -122,8 +140,12 @@ public class SceneMain extends Scene{
    double missionStartTimes[] = new double[6];
    private Random random = new Random();
    
+   int timerScale = 5;
+   
    public TextObject textMain;
    ImageObject ball;
+   TextObject timer;
+   TextObject textPoints;
    public ImageObject box;
    
    public SceneMain(int idIn, Activity a, boolean visible) {
@@ -140,21 +162,34 @@ public class SceneMain extends Scene{
      ball = new ImageObject(R.drawable.ball, a, Globals.newId(), false);
      ball.alignToLeft();
      ball.alignToTop();
-     ball.setAbsScaleX(Globals.screenDimensions.x/10);
+     
      
      
      box = new ImageObject(R.drawable.circle, a, Globals.newId(), false);
      box.setAbsScaleX((int)(Globals.screenDimensions.x/1.5f));
+     
      box.alignToBottom();
      
      
      
+     timer = new TextObject("FREEZE", a, Globals.newId());
+     //timer.getElement().setScaleType(ScaleType.CENTER_CROP);
+     timer.setTextSize(timerScale);
+     timer.getElement().setAlpha(0.f);
+     timer.setColour(Colour.FromRGB(255, 255, 255));
+     
+     textPoints = new TextObject("Points: " + 0, a, Globals.newId());
+     textPoints.setTextSize(Globals.getTextSize()*0.7f);
+     textPoints.alignToRight();
+     textPoints.alignToTop();
      
      addElementToView(box);
      addElementToView(ball);
+     addElementToView(textPoints);
 
      addElementToView(textMain);
-     ball.getElement().setPadding((int)ballBaseX, (int)ballBaseY, 0, 0);
+     
+     ball.getElement().setPadding((int)ballBase.x, (int)ballBase.y, 0, 0);
      
      
      //handler.postDelayed(runnable, 0);
@@ -167,7 +202,22 @@ public class SceneMain extends Scene{
         }
      }, 0, 16);
    }
+   
+   public void updatePoints(double p)
+   {
+	   	points += p;
+	   	textPoints.setText("Points: " + points);
+   }
 
+   public void ScreenReleased(){
+	   timerScale = 5;
+	   timer.setTextSize(timerScale);
+	   if (timer.getElement().getAlpha() > 0.1f)
+		   updatePoints(-50.f);
+	   timer.getElement().setAlpha(0.f);
+	   
+	   //timer.setScale(timerScale, timerScale);
+   }
    
    private void missionSetup()
    {
@@ -202,10 +252,13 @@ public class SceneMain extends Scene{
      if (missionNames[currentMission].equals(in))
      {
        Toast.makeText((Context)a, "YES!", Toast.LENGTH_LONG).show();
+       updatePoints(200.f);
        missionSetup();
      }
-     else
+     else{
        Toast.makeText((Context)a, in, Toast.LENGTH_LONG).show();
+       updatePoints(-50);
+     }
 
    }
    
