@@ -84,6 +84,14 @@ public class SceneMain extends Scene{
 			addElementToView(timer);
        }
        
+       if (pointsIndicator.getElement().getAlpha() > 0.f)
+       {
+    	   pointsIndicator.getElement().setAlpha(Math.abs(1.f-(pointsIndicatorOffset/255.f)));
+    	   // This division isn't just for comedic purposes
+    	   pointsIndicator.setPadding(0, (int)(pointsIndicatorOffset/(Globals.screenDimensions.y/(Globals.screenDimensions.y/1.5f))), 0, 0);
+    	   pointsIndicatorOffset+=3;
+       }
+       
        if (((MainActivity)activity).held && timerScale < 255 && ballHeight == 0){
     	   timerScale++;
     	   timer.setTextSize(timerScale/3.f);
@@ -97,11 +105,12 @@ public class SceneMain extends Scene{
     	   return;
        }
        
+       
+       
        if (!boundingCircle(ballOffset.x, ballOffset.y, 0, 0, ball.getWidth()/4, box.getWidth()/2))
        {
     	   ballHeight++;
     	   ball.getElement().setAlpha(Math.abs(1.f-((int)ballHeight*3/255.f)));
-    	   textMain.setText("" + velocity.x);
        }
        
        if (ballHeight == 0)
@@ -147,6 +156,10 @@ public class SceneMain extends Scene{
    TextObject timer;
    TextObject textPoints;
    public ImageObject box;
+   TextObject pointsIndicator;
+   
+   vec2 pointsIndicatorBase = new vec2();
+   float pointsIndicatorOffset = 0;
    
    public SceneMain(int idIn, Activity a, boolean visible) {
      super(idIn, a, visible);
@@ -155,7 +168,8 @@ public class SceneMain extends Scene{
      textMain.setTextSize(Globals.getTextSize()*2.5f);
      textMain.setGravity(Gravity.CENTER);
      textMain.getElement().setPaintFlags(Paint.FAKE_BOLD_TEXT_FLAG);
-     textMain.getElement().setPadding(Globals.screenDimensions.x/20, 0, Globals.screenDimensions.x/20, Globals.screenDimensions.y/4);
+     textMain.getElement().setPadding(Globals.screenDimensions.x/20, 0, Globals.screenDimensions.x/20,0);
+     textMain.alignToTop();
      textMain.setColour(Colour.FromRGB(255, 255, 255));
      missionSetup();
      
@@ -167,10 +181,10 @@ public class SceneMain extends Scene{
      
      box = new ImageObject(R.drawable.circle, a, Globals.newId(), false);
      box.setAbsScaleX((int)(Globals.screenDimensions.x/1.5f));
-     
+     box.setMargins(0, Globals.screenDimensions.y/16, 0, Globals.screenDimensions.y/16);
      box.alignToBottom();
-     
-     
+     //textMain.addRule(RelativeLayout.ABOVE, box.getId());
+     textMain.setMargins(0, Globals.screenDimensions.y/8, 0, Globals.screenDimensions.y/24);
      
      timer = new TextObject("FREEZE", a, Globals.newId());
      //timer.getElement().setScaleType(ScaleType.CENTER_CROP);
@@ -183,11 +197,17 @@ public class SceneMain extends Scene{
      textPoints.alignToRight();
      textPoints.alignToTop();
      
+     pointsIndicator = new TextObject("", a, Globals.newId());
+     pointsIndicator.alignToTop();
+     pointsIndicator.getElement().setAlpha(0.f);
+     pointsIndicator.setMargins(0, Globals.screenDimensions.y/24, 0, 0);
+     pointsIndicator.setTextSize(Globals.getTextSize()*1.5f);
      addElementToView(box);
      addElementToView(ball);
      addElementToView(textPoints);
 
      addElementToView(textMain);
+     addElementToView(pointsIndicator);
      
      ball.getElement().setPadding((int)ballBase.x, (int)ballBase.y, 0, 0);
      
@@ -207,6 +227,19 @@ public class SceneMain extends Scene{
    {
 	   	points += p;
 	   	textPoints.setText("Points: " + points);
+	   	
+	   	if (p >= 0)
+	   		pointsIndicator.setColour(Colour.FromRGB(10, 255, 10));
+	   	else
+	   		pointsIndicator.setColour(Colour.FromRGB(255, 10, 10));
+	   	
+	   	pointsIndicatorOffset = 0;
+	   	pointsIndicator.setPadding(0, (int)pointsIndicatorOffset, 0, 0);
+	   	pointsIndicator.getElement().setAlpha(1.0f);
+	   	
+	   	String sign = p > 0 ? "+" : "";
+	   	pointsIndicator.setText(sign+p);
+	   	
    }
 
    public void ScreenReleased(){

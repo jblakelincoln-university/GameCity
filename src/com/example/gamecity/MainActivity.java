@@ -69,10 +69,8 @@ public class MainActivity extends NfcSceneActivity {
     public boolean onTouchEvent(MotionEvent event) {
 		
 		if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
-			sceneMain.textMain.setText("TOUCH " + ++touchCount);
 			held = true;
 	    } else if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
-	    	sceneMain.textMain.setText("RELEASE " + touchCount);
 	    	sceneMain.ScreenReleased();
 	    	held = false;
 	    }
