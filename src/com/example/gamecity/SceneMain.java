@@ -11,6 +11,7 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.os.Handler;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView.ScaleType;
 import android.widget.RelativeLayout;
@@ -21,6 +22,7 @@ import com.scenelibrary.classes.AccelerometerManager;
 import com.scenelibrary.classes.Colour;
 import com.scenelibrary.classes.Globals;
 import com.scenelibrary.classes.Scene;
+import com.scenelibrary.classes.Objects.ButtonObject;
 import com.scenelibrary.classes.Objects.ImageObject;
 import com.scenelibrary.classes.Objects.TextObject;
 
@@ -62,13 +64,24 @@ public class SceneMain extends Scene{
 	   }
      @Override
      public void run() {
+    	 // Don't run game loop if help screen is open
+    	 if (helpIndex < 7)
+    		 return;
     	 
+    	 // Don't run loop if screen isn't initialised
        if (ballBase.x == 0 && box.getElement().getX() == 0)
     	   return;
+       
+       // Set up game objects on first loop run.
        else if (ballBase.x == 0)
        {
-    	    ballHeight = 0;
-    	    ballBase.x = box.getElement().getX();
+			ball.getElement().setAlpha(1.f);
+			ball.setImage(R.drawable.ball);
+			ball.setAbsScaleX(Globals.screenDimensions.x/10);
+			velocity.x = 0;
+			velocity.y = 0;
+			ballHeight = 0;
+			ballBase.x = box.getElement().getX();
 			ballBase.y = box.getElement().getY();
 			ballBase.x += box.getWidth()/2;
 			ballBase.y += box.getHeight()/2;
@@ -76,14 +89,13 @@ public class SceneMain extends Scene{
 			ballBase.y -= ball.getHeight()/2;
 			ballOffset.x = 0;
 			ballOffset.y = 0;
-			ball.getElement().setAlpha(1.f);
-			ball.setImage(R.drawable.ball);
-			ball.setAbsScaleX(Globals.screenDimensions.x/10);
+			
 			boundingRad = (box.getWidth()/2);
 			timer.getElement().setAlpha(0.f);
 			addElementToView(timer);
        }
        
+       // Update points flash if it's in view
        if (pointsIndicator.getElement().getAlpha() > 0.f)
        {
     	   pointsIndicator.getElement().setAlpha(Math.abs(1.f-(pointsIndicatorOffset/255.f)));
@@ -92,27 +104,28 @@ public class SceneMain extends Scene{
     	   pointsIndicatorOffset+=3;
        }
        
-       if (((MainActivity)activity).held && timerScale < 255 && ballHeight == 0){
-    	   timerScale++;
+       // Exit loop if the screen is being held and freeze time hasn't run out
+       if (timerScale > 5 && timerScale < 255 && ballHeight == 0){
+    	   timerScale+=0.7f;
     	   timer.setTextSize(timerScale/3.f);
     	   timer.getElement().setAlpha(Math.abs(1.f-(timerScale/255.f)));
-    	   
-    	   if (timer.getElement().getAlpha() == 0.f)
-    	   {
-    		   ((MainActivity)activity).held = false;
-    		   updatePoints(-50);
-    	   }
+
     	   return;
        }
-       
-       
-       
-       if (!boundingCircle(ballOffset.x, ballOffset.y, 0, 0, ball.getWidth()/4, box.getWidth()/2))
-       {
-    	   ballHeight++;
-    	   ball.getElement().setAlpha(Math.abs(1.f-((int)ballHeight*3/255.f)));
+       else if (timerScale >= 255){
+    		   timerScale = 5;
+    		   updatePoints(-50);
        }
        
+       
+       // Remove ball from platform if it has gone off the edge
+       if (!boundingCircle(ballOffset.x, ballOffset.y, 0, 0, ball.getWidth()/6, box.getWidth()/2))
+       {
+    	   ballHeight++;
+    	   ball.getElement().setAlpha(Math.abs(1.f-((int)ballHeight*2.5f/255.f)));
+       }
+       
+       // If ball is still on the platform, update the velocity. Otherwise, decrease it for falling effect
        if (ballHeight == 0)
        {
 	       double accX = AccelerometerManager.getX();
@@ -127,21 +140,68 @@ public class SceneMain extends Scene{
     	   velocity.x -= velocity.x/(50-Math.min(ballHeight, 20));
     	   velocity.y -= velocity.y/(50-Math.min(ballHeight, 20));
        }
+       // Once the ball has fallen for so long, reset it.
        if (ballHeight > 100)
        {
     	   ballBase.x = 0;
     	   updatePoints(-150);
-    	   
        }
        
+       //Update ball
        ballOffset.x -= velocity.x;
        ballOffset.y += velocity.y;
-       
        ball.getElement().setPadding((int)((ballBase.x) + ballOffset.x), (int)((ballBase.y) + ballOffset.y), 0, 0);
        //handler.postDelayed(this, 16);
      }
    
    };
+   
+   private void helpNext(){
+	   
+	   if (helpIndex == 0)
+		   buttonLeft.getElement().setAlpha(1.f);
+	   help.setText(helpText[++helpIndex]);
+	   
+	   if (helpIndex > 6){
+		   
+		   addElementToView(box);
+	       addElementToView(ball);
+	       addElementToView(textPoints);
+
+	       addElementToView(textMain);
+	       addElementToView(pointsIndicator);
+		   
+	       buttonLeft.getElement().setAlpha(0.f);
+	       buttonLeft.getElement().setEnabled(false);
+
+	       buttonRight.getElement().setAlpha(0.f);
+	       buttonRight.getElement().setEnabled(false);
+	   }
+   }
+   private void helpPrev(){
+	   if (helpIndex <= 1){
+		   buttonLeft.getElement().setAlpha(0.f);
+		   if (helpIndex == 0)
+			   return;
+	   }
+	   help.setText(helpText[--helpIndex]);
+   }
+   
+   private void setButtonHandlers(){
+	   buttonLeft.getElement().setOnClickListener(new View.OnClickListener() {
+		   @Override
+			public void onClick(View v) {
+			   helpPrev();
+			}
+	   });
+	   
+	   buttonRight.getElement().setOnClickListener(new View.OnClickListener() {
+		   @Override
+			public void onClick(View v) {
+			   helpNext();
+			}
+	   });
+   }
    
    int currentMission = -1;
    boolean missionCompletion[] = new boolean[6];
@@ -149,7 +209,7 @@ public class SceneMain extends Scene{
    double missionStartTimes[] = new double[6];
    private Random random = new Random();
    
-   int timerScale = 5;
+   float timerScale = 5;
    
    public TextObject textMain;
    ImageObject ball;
@@ -160,6 +220,10 @@ public class SceneMain extends Scene{
    
    vec2 pointsIndicatorBase = new vec2();
    float pointsIndicatorOffset = 0;
+   
+   TextObject help;
+   ButtonObject buttonLeft;
+   ButtonObject buttonRight;
    
    public SceneMain(int idIn, Activity a, boolean visible) {
      super(idIn, a, visible);
@@ -176,8 +240,16 @@ public class SceneMain extends Scene{
      ball = new ImageObject(R.drawable.ball, a, Globals.newId(), false);
      ball.alignToLeft();
      ball.alignToTop();
+     ball.getElement().setAlpha(0.f);
      
+     help = new TextObject(helpText[0], a, Globals.newId());
+     help.setTextSize(Globals.getTextSize()*3.5f);
+     help.setColour(Colour.FromRGB(255, 255, 255));
+     help.getElement().setPadding(Globals.screenDimensions.x/20, 0, Globals.screenDimensions.x/20,0);
      
+     help.setGravity(Gravity.CENTER);
+     help.getElement().setPaintFlags(Paint.FAKE_BOLD_TEXT_FLAG);
+     addElementToView(help);
      
      box = new ImageObject(R.drawable.circle, a, Globals.newId(), false);
      box.setAbsScaleX((int)(Globals.screenDimensions.x/1.5f));
@@ -185,6 +257,26 @@ public class SceneMain extends Scene{
      box.alignToBottom();
      //textMain.addRule(RelativeLayout.ABOVE, box.getId());
      textMain.setMargins(0, Globals.screenDimensions.y/8, 0, Globals.screenDimensions.y/24);
+     
+     buttonLeft = new ButtonObject("<", a, Globals.newId());
+     buttonRight = new ButtonObject(">", a, Globals.newId());
+     
+     buttonLeft.alignToLeft();
+     buttonRight.alignToRight();
+     buttonLeft.alignToBottom();
+     buttonRight.alignToBottom();
+     buttonLeft.getLayoutParams().setMargins(Globals.screenDimensions.x/10, 0, 0, Globals.screenDimensions.y/10);
+     buttonRight.getLayoutParams().setMargins(0, 0, Globals.screenDimensions.x/10, Globals.screenDimensions.y/10);
+     buttonLeft.getElement().setAlpha(0.f);
+     help.addRule(RelativeLayout.ABOVE, buttonLeft.getId());
+     
+     buttonLeft.getElement().setTextColor(Colour.FromRGB(255, 255, 255));
+     buttonRight.getElement().setTextColor(Colour.FromRGB(255, 255, 255));
+     setButtonHandlers();
+     
+     addElementToView(buttonLeft);
+     addElementToView(buttonRight);
+     
      
      timer = new TextObject("FREEZE", a, Globals.newId());
      //timer.getElement().setScaleType(ScaleType.CENTER_CROP);
@@ -196,20 +288,17 @@ public class SceneMain extends Scene{
      textPoints.setTextSize(Globals.getTextSize()*0.7f);
      textPoints.alignToRight();
      textPoints.alignToTop();
+     textPoints.setColour(Colour.FromRGB(255, 255, 255));
+     textPoints.getLayoutParams().setMargins(0, Globals.screenDimensions.y/36, Globals.screenDimensions.x/12, 0);
      
      pointsIndicator = new TextObject("", a, Globals.newId());
      pointsIndicator.alignToTop();
      pointsIndicator.getElement().setAlpha(0.f);
      pointsIndicator.setMargins(0, Globals.screenDimensions.y/24, 0, 0);
      pointsIndicator.setTextSize(Globals.getTextSize()*1.5f);
-     addElementToView(box);
-     addElementToView(ball);
-     addElementToView(textPoints);
-
-     addElementToView(textMain);
-     addElementToView(pointsIndicator);
      
-     ball.getElement().setPadding((int)ballBase.x, (int)ballBase.y, 0, 0);
+     
+     //ball.getElement().setPadding((int)ballBase.x, (int)ballBase.y, 0, 0);
      
      
      //handler.postDelayed(runnable, 0);
@@ -240,6 +329,10 @@ public class SceneMain extends Scene{
 	   	String sign = p > 0 ? "+" : "";
 	   	pointsIndicator.setText(sign+p);
 	   	
+   }
+   
+   public void ScreenPressed(){
+	   timerScale = 6;
    }
 
    public void ScreenReleased(){
@@ -295,6 +388,18 @@ public class SceneMain extends Scene{
 
    }
    
+   private int helpIndex = 0;
+   
+   private String helpText[] = {
+		   "Trivia questions will appear on screen",
+		   "Scan the circle on the correct answer posters",
+		   "Keep the ball balanced whilst you search",
+		   "Hold the screen to freeze the ball for up to five seconds",
+		   "You will gain points for correct answers, and lose them for incorrect answers",
+		   "You will lose points for freezing the ball to answer a question incorrectly",
+		   "Hold your device flat and proceed to play",
+		   ""
+   };
    private String missionNames[] = {
 	       "Big Ben",
 	       "Burj Khalifa",

@@ -16,6 +16,7 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
+import android.view.Window;
 import android.widget.Toast;
 
 public class MainActivity extends NfcSceneActivity {
@@ -26,7 +27,7 @@ public class MainActivity extends NfcSceneActivity {
 		super.onCreate(savedInstanceState);
 		
 		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-		
+		this.requestWindowFeature(Window.FEATURE_NO_TITLE); 
 		Globals.Init(this);
 		AccelerometerManager.Init(this);
 		sceneMain = new SceneMain(0, this, false);
@@ -64,15 +65,13 @@ public class MainActivity extends NfcSceneActivity {
 	    });
 	}
 	
-	public boolean held = false;
 	@Override
     public boolean onTouchEvent(MotionEvent event) {
 		
 		if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
-			held = true;
+			sceneMain.ScreenPressed();
 	    } else if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
 	    	sceneMain.ScreenReleased();
-	    	held = false;
 	    }
 		
         return super.onTouchEvent(event);
