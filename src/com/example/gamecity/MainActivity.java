@@ -8,6 +8,7 @@ import com.scenelibrary.classes.NfcSceneActivity;
 import com.scenelibrary.classes.SceneActivity;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -26,6 +27,12 @@ public class MainActivity extends NfcSceneActivity {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		
+		GradientDrawable gd = new GradientDrawable(
+	            GradientDrawable.Orientation.TOP_BOTTOM,
+	            new int[] {Colour.FromRGB(110, 145, 255), Colour.FromRGB(255, 110, 228)});
+	    gd.setCornerRadius(0f);
+	    this.getLayout().get().setBackgroundDrawable(gd);
+		//layout.setContentView();
 		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 		this.requestWindowFeature(Window.FEATURE_NO_TITLE); 
 		Globals.Init(this);
@@ -39,12 +46,9 @@ public class MainActivity extends NfcSceneActivity {
 		SetScreenState(sceneMain);
 		
 
-	    GradientDrawable gd = new GradientDrawable(
-	            GradientDrawable.Orientation.TOP_BOTTOM,
-	            new int[] {Colour.FromRGB(110, 145, 255), Colour.FromRGB(255, 110, 228)});
-	    gd.setCornerRadius(0f);
+	    
 
-	    this.getLayout().get().setBackgroundDrawable(gd);
+	    
 
 	    this.getLayout().get().setOnTouchListener(new OnTouchListener(){
 			public boolean onTouchEvent(View v, MotionEvent event) {
@@ -83,4 +87,9 @@ public class MainActivity extends NfcSceneActivity {
 		
 		sceneMain.NfcScanned(in, a);
 	}
+	
+	@Override
+ 	public void onNewIntent(Intent intent){
+ 		this.handleIntent(intent, this);
+ 	} 
 }

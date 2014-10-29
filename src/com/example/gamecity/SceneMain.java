@@ -1,14 +1,19 @@
 package com.example.gamecity;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.media.MediaPlayer;
 import android.os.Handler;
 import android.view.Gravity;
 import android.view.View;
@@ -21,6 +26,7 @@ import android.widget.Toast;
 import com.scenelibrary.classes.AccelerometerManager;
 import com.scenelibrary.classes.Colour;
 import com.scenelibrary.classes.Globals;
+import com.scenelibrary.classes.NfcHelper;
 import com.scenelibrary.classes.Scene;
 import com.scenelibrary.classes.Objects.ButtonObject;
 import com.scenelibrary.classes.Objects.ImageObject;
@@ -65,9 +71,12 @@ public class SceneMain extends Scene{
      @Override
      public void run() {
     	 // Don't run game loop if help screen is open
-    	 if (helpIndex < 7)
+    	 if (helpIndex < 7){
+    		 if (helpIndex == -1 && NfcHelper.mNfcAdapter != null && NfcHelper.mNfcAdapter.isEnabled()){
+    			 helpNext();
+    		 }
     		 return;
-    	 
+    	 }
     	 // Don't run loop if screen isn't initialised
        if (ballBase.x == 0 && box.getElement().getX() == 0)
     	   return;
@@ -114,8 +123,10 @@ public class SceneMain extends Scene{
        }
        else if (timerScale >= 255){
     		   timerScale = 5;
-    		   updatePoints(-50);
+    		   if (!correctAnswerPicked)
+    			   updatePoints(-50);
        }
+       correctAnswerPicked = false;
        
        
        // Remove ball from platform if it has gone off the edge
@@ -131,8 +142,11 @@ public class SceneMain extends Scene{
 	       double accX = AccelerometerManager.getX();
 	       double accY = AccelerometerManager.getY();
 	
-	       velocity.x += accX/26;
-	       velocity.y += accY/26;
+	       accX *= 1.f-(accX/Globals.screenDimensions.x);
+	       accY *= 1.f-(accY/Globals.screenDimensions.y);
+	       
+	       velocity.x += accX/36;
+	       velocity.y += accY/36;
        }
        else if (ball.getWidth() > 5){
     	   ball.setAbsScaleX(ball.getWidth()-1);
@@ -147,6 +161,7 @@ public class SceneMain extends Scene{
     	   updatePoints(-150);
        }
        
+       
        //Update ball
        ballOffset.x -= velocity.x;
        ballOffset.y += velocity.y;
@@ -156,11 +171,26 @@ public class SceneMain extends Scene{
    
    };
    
+   boolean correctAnswerPicked = false;
+   
    private void helpNext(){
 	   
-	   if (helpIndex == 0)
-		   buttonLeft.getElement().setAlpha(1.f);
 	   help.setText(helpText[++helpIndex]);
+	   
+	   if (helpIndex == 0){
+		   buttonLeft.getElement().setAlpha(0.f);
+		   addElementToView(buttonRight);
+	   }
+	   else if (helpIndex > 0){
+		   addElementToView(buttonLeft);
+		   buttonLeft.getElement().setAlpha(1.f);
+	   }
+	   
+	   
+	   if (helpIndex > 5){
+		   buttonRight.getElement().setAlpha(0.f);
+		   buttonRight.getElement().setEnabled(false);
+	   }
 	   
 	   if (helpIndex > 6){
 		   
@@ -173,9 +203,10 @@ public class SceneMain extends Scene{
 		   
 	       buttonLeft.getElement().setAlpha(0.f);
 	       buttonLeft.getElement().setEnabled(false);
+	       
+	       missionSetup();
 
-	       buttonRight.getElement().setAlpha(0.f);
-	       buttonRight.getElement().setEnabled(false);
+	       
 	   }
    }
    private void helpPrev(){
@@ -184,6 +215,8 @@ public class SceneMain extends Scene{
 		   if (helpIndex == 0)
 			   return;
 	   }
+	   buttonRight.getElement().setAlpha(1.f);
+       buttonRight.getElement().setEnabled(true);
 	   help.setText(helpText[--helpIndex]);
    }
    
@@ -205,8 +238,8 @@ public class SceneMain extends Scene{
    
    int currentMission = -1;
    boolean missionCompletion[] = new boolean[6];
-   double missionCompletionTimes[] = new double[6];
-   double missionStartTimes[] = new double[6];
+   long missionCompletionTimes[] = new long[6];
+   long missionStartTimes[] = new long[6];
    private Random random = new Random();
    
    float timerScale = 5;
@@ -235,14 +268,22 @@ public class SceneMain extends Scene{
      textMain.getElement().setPadding(Globals.screenDimensions.x/20, 0, Globals.screenDimensions.x/20,0);
      textMain.alignToTop();
      textMain.setColour(Colour.FromRGB(255, 255, 255));
-     missionSetup();
      
      ball = new ImageObject(R.drawable.ball, a, Globals.newId(), false);
      ball.alignToLeft();
      ball.alignToTop();
      ball.getElement().setAlpha(0.f);
      
-     help = new TextObject(helpText[0], a, Globals.newId());
+     
+     help = new TextObject("THIS IS THE FIRST SCREEN", a, Globals.newId());
+     
+     if (NfcHelper.mNfcAdapter == null)
+    	 help.setText("This device does not support NFC.");
+     else if (!NfcHelper.mNfcAdapter.isEnabled())
+    	 help.setText("Enable NFC in your settings to play.");
+     else
+    	 help.setText("Press the arrow to proceed.");
+     
      help.setTextSize(Globals.getTextSize()*3.5f);
      help.setColour(Colour.FromRGB(255, 255, 255));
      help.getElement().setPadding(Globals.screenDimensions.x/20, 0, Globals.screenDimensions.x/20,0);
@@ -267,15 +308,15 @@ public class SceneMain extends Scene{
      buttonRight.alignToBottom();
      buttonLeft.getLayoutParams().setMargins(Globals.screenDimensions.x/10, 0, 0, Globals.screenDimensions.y/10);
      buttonRight.getLayoutParams().setMargins(0, 0, Globals.screenDimensions.x/10, Globals.screenDimensions.y/10);
-     buttonLeft.getElement().setAlpha(0.f);
+    
      help.addRule(RelativeLayout.ABOVE, buttonLeft.getId());
      
      buttonLeft.getElement().setTextColor(Colour.FromRGB(255, 255, 255));
      buttonRight.getElement().setTextColor(Colour.FromRGB(255, 255, 255));
      setButtonHandlers();
      
-     addElementToView(buttonLeft);
-     addElementToView(buttonRight);
+     
+     
      
      
      timer = new TextObject("FREEZE", a, Globals.newId());
@@ -295,7 +336,7 @@ public class SceneMain extends Scene{
      pointsIndicator.alignToTop();
      pointsIndicator.getElement().setAlpha(0.f);
      pointsIndicator.setMargins(0, Globals.screenDimensions.y/24, 0, 0);
-     pointsIndicator.setTextSize(Globals.getTextSize()*1.5f);
+     pointsIndicator.setTextSize(Globals.getTextSize()*2.2f);
      
      
      //ball.getElement().setPadding((int)ballBase.x, (int)ballBase.y, 0, 0);
@@ -314,8 +355,10 @@ public class SceneMain extends Scene{
    
    public void updatePoints(double p)
    {
+	   if (allComplete)
+		   return;
 	   	points += p;
-	   	textPoints.setText("Points: " + points);
+	   	textPoints.setText("Points: " + (int)points);
 	   	
 	   	if (p >= 0)
 	   		pointsIndicator.setColour(Colour.FromRGB(10, 255, 10));
@@ -327,7 +370,7 @@ public class SceneMain extends Scene{
 	   	pointsIndicator.getElement().setAlpha(1.0f);
 	   	
 	   	String sign = p > 0 ? "+" : "";
-	   	pointsIndicator.setText(sign+p);
+	   	pointsIndicator.setText(sign+(int)p);
 	   	
    }
    
@@ -338,12 +381,16 @@ public class SceneMain extends Scene{
    public void ScreenReleased(){
 	   timerScale = 5;
 	   timer.setTextSize(timerScale);
-	   if (timer.getElement().getAlpha() > 0.1f)
+	   if (timer.getElement().getAlpha() > 0.1f && !correctAnswerPicked)
 		   updatePoints(-50.f);
 	   timer.getElement().setAlpha(0.f);
 	   
 	   //timer.setScale(timerScale, timerScale);
    }
+   
+   boolean allComplete = false;
+   
+   List<String> missionTitles = new ArrayList<String>();
    
    private void missionSetup()
    {
@@ -352,7 +399,7 @@ public class SceneMain extends Scene{
        missionCompletion[currentMission] = true;
      }
      
-     boolean allComplete = true;
+     allComplete = true;
      for (boolean x : missionCompletion)
        if (!x){
          allComplete = false;
@@ -360,7 +407,27 @@ public class SceneMain extends Scene{
      }
      
      if (allComplete){
-       textMain.setText("COMPLETE");
+    	 textMain.setTextSize(Globals.getTextSize()*1.5f);
+    	 textMain.setText("All questions answered!\nYour times are ...\n\n");	
+    	 long totalTime = 0;
+    	 for (int i = 0; i < 6; i++){
+	    	 long millis = missionCompletionTimes[i] - missionStartTimes[i];
+	    	 int seconds = (int) (millis / 1000);
+	    	 int minutes = seconds / 60;
+	    	 seconds = seconds % 60;
+	    	 textMain.getElement().append(missionTitles.get(i) + String.format(": %d:%02d\n", minutes, seconds));
+	    	 
+	    	 totalTime += millis;
+    	 }
+    	 
+    	 // Bonus points for under ten minutes
+    	 if (totalTime < 600000){
+    		 allComplete = false;
+    		 float bonus = (600000-totalTime)/35;
+    		 updatePoints(bonus);
+    		 allComplete = true;
+    		 textMain.append("\n\nTime bonus!\n+" + (int)bonus + " points!");
+    	 }
        return;
      }
      
@@ -375,20 +442,27 @@ public class SceneMain extends Scene{
    
    public void NfcScanned(String in, Activity a)
    {
-     if (missionNames[currentMission].equals(in))
-     {
-       Toast.makeText((Context)a, "YES!", Toast.LENGTH_LONG).show();
-       updatePoints(200.f);
-       missionSetup();
-     }
-     else{
-       Toast.makeText((Context)a, in, Toast.LENGTH_LONG).show();
-       updatePoints(-50);
-     }
-
+	   if (in.equals("Start")){
+		   if (helpIndex == 6){
+			   Toast.makeText((Context)a, "Go!", Toast.LENGTH_LONG).show();
+			   helpNext();
+		   }
+	   }
+	   else if (missionNames[currentMission].equals(in)){
+		  
+		   missionTitles.add(in);
+	       Toast.makeText((Context)a, "Correct!", Toast.LENGTH_LONG).show();
+	       updatePoints(500);
+	       correctAnswerPicked = true;
+	       missionSetup();
+	   }
+	   else if (helpIndex > 6){
+		   Toast.makeText((Context)a, "Wrong answer!", Toast.LENGTH_LONG).show();
+		   updatePoints(-50);
+	   }
    }
    
-   private int helpIndex = 0;
+   private int helpIndex = -1;
    
    private String helpText[] = {
 		   "Trivia questions will appear on screen",
@@ -397,7 +471,7 @@ public class SceneMain extends Scene{
 		   "Hold the screen to freeze the ball for up to five seconds",
 		   "You will gain points for correct answers, and lose them for incorrect answers",
 		   "You will lose points for freezing the ball to answer a question incorrectly",
-		   "Hold your device flat and proceed to play",
+		   "Hold your device flat and scan the start tag to play",
 		   ""
    };
    private String missionNames[] = {
