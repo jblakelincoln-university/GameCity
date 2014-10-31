@@ -41,132 +41,137 @@ class vec2{
 public class SceneMain extends Scene{
 
    
-   
-   
-   
+   //Physics   
    vec2 acceleration = new vec2();
    vec2 velocity = new vec2();
+   vec2 ballOffset = new vec2(); // Ball's position from the centre
+   vec2 ballBase = new vec2(); // Middle of platform (where the ball should be positioned)
    
-   vec2 ballOffset = new vec2();
-   
-   vec2 ballBase = new vec2();
-   
-   double ballHeight = 0;
-   
+   double ballHeight = 0; // Height will be 0 whilst on the platform, otherwise decreasing
    double points = 0;
-   double boundingRad = 0;
+   double boundingRad = 0; // Radius of the platform
    
    private Handler handler = new Handler();
    private Runnable runnable = new Runnable() {
 
+	   private void initialiseScene(){
+		   imageBall.getElement().setAlpha(1.f);
+			imageBall.setImage(R.drawable.ball);
+			imageBall.setAbsScaleX(Globals.screenDimensions.x/10);
+			velocity.x = 0;
+			velocity.y = 0;
+			ballHeight = 0;
+			ballBase.x = imagePlatform.getElement().getX();
+			ballBase.y = imagePlatform.getElement().getY();
+			ballBase.x += imagePlatform.getWidth()/2;
+			ballBase.y += imagePlatform.getHeight()/2;
+			ballBase.x -= imageBall.getWidth()/2;
+			ballBase.y -= imageBall.getHeight()/2;
+			ballOffset.x = 0;
+			ballOffset.y = 0;
+			
+			boundingRad = (imagePlatform.getWidth()/2);
+			textTimer.getElement().setAlpha(0.f);
+			addElementToView(textTimer);	   
+	   }
+	   
+	// Update points flash if it's in view - will become more lower and more transparent over time
+	   private void pointsDisplay(){
+	       if (pointsIndicator.getElement().getAlpha() > 0.f) {
+	    	   pointsIndicator.getElement().setAlpha(Math.abs(1.f-(pointsIndicatorOffset/255.f)));
+	    	   // This division isn't just for comedic purposes
+	    	   pointsIndicator.setPadding(0, (int)(pointsIndicatorOffset/(Globals.screenDimensions.y/(Globals.screenDimensions.y/1.5f))), 0, 0);
+	    	   pointsIndicatorOffset+=3;
+	       }
+	   }
+	   
+	   private void screenFreeze(){
+		// Exit loop if the screen is being held and freeze time hasn't run out
+	       if (timerScale > 5 && timerScale < 255 && ballHeight == 0){
+	    	   timerScale+=0.7f;
+	    	   textTimer.setTextSize(timerScale/3.f);
+	    	   textTimer.getElement().setAlpha(Math.abs(1.f-(timerScale/255.f)));
+	    	   return;
+	       }
+	       else if (timerScale >= 255){ // Decrease points if freeze didn't result in a correct answer
+	    		   timerScale = 5;
+	    		   if (!correctAnswerPicked)
+	    			   updatePoints(-50);
+	       }
+	       correctAnswerPicked = false;
+	   }
+	   
+	   private void updatePhysics(){
+		// Remove ball from platform if it has gone off the edge
+	       if (!boundingCircle(ballOffset.x, ballOffset.y, 0, 0, imageBall.getWidth()/6, imagePlatform.getWidth()/2))
+	       {
+	    	   ballHeight++;
+	    	   imageBall.getElement().setAlpha(Math.abs(1.f-((int)ballHeight*2.5f/255.f)));
+	       }
+	       
+	       // If ball is still on the platform, update the velocity. Otherwise, decrease it for falling effect
+	       if (ballHeight == 0) {
+		       double accX = AccelerometerManager.getX();
+		       double accY = AccelerometerManager.getY();
+		
+		       accX *= 1.f-(accX/Globals.screenDimensions.x);
+		       accY *= 1.f-(accY/Globals.screenDimensions.y);
+		       
+		       velocity.x += accX/66;
+		       velocity.y += accY/66;
+	       }
+	       else if (imageBall.getWidth() > 5){
+	    	   imageBall.setAbsScaleX(imageBall.getWidth()-1);
+	    	   
+	    	   velocity.x -= velocity.x/(50-Math.min(ballHeight, 20));
+	    	   velocity.y -= velocity.y/(50-Math.min(ballHeight, 20));
+	       }
+	       // Once the ball has fallen for so long, reset it.
+	       if (ballHeight > 100)
+	       {
+	    	   ballBase.x = 0;
+	    	   updatePoints(-150);
+	       }
+	       
+	       
+	       //Update ball
+	       ballOffset.x -= velocity.x;
+	       ballOffset.y += velocity.y;
+	       imageBall.getElement().setPadding((int)((ballBase.x) + ballOffset.x), (int)((ballBase.y) + ballOffset.y), 0, 0);
+	       //handler.postDelayed(this, 16);
+	   }
 	   private boolean boundingCircle(double x1, double y1, double x2, double y2, double rad1, double rad2)
 	   {
 		   double distanceX = x2 - x1;
 		   double distanceY = y2 - y1;
-		   
 		   double mag = Math.sqrt((distanceX * distanceX) + (distanceY * distanceY));
-		   
 		   return mag < rad1 + rad2;
 	   }
+	   
      @Override
      public void run() {
     	 // Don't run game loop if help screen is open
     	 if (helpIndex < 7){
+    		 // If NFC is enabled, show the first help screen.
     		 if (helpIndex == -1 && NfcHelper.mNfcAdapter != null && NfcHelper.mNfcAdapter.isEnabled()){
     			 helpNext();
     		 }
     		 return;
     	 }
+    	 
     	 // Don't run loop if screen isn't initialised
-       if (ballBase.x == 0 && box.getElement().getX() == 0)
+       if (ballBase.x == 0 && imagePlatform.getElement().getX() == 0)
     	   return;
-       
        // Set up game objects on first loop run.
        else if (ballBase.x == 0)
-       {
-			ball.getElement().setAlpha(1.f);
-			ball.setImage(R.drawable.ball);
-			ball.setAbsScaleX(Globals.screenDimensions.x/10);
-			velocity.x = 0;
-			velocity.y = 0;
-			ballHeight = 0;
-			ballBase.x = box.getElement().getX();
-			ballBase.y = box.getElement().getY();
-			ballBase.x += box.getWidth()/2;
-			ballBase.y += box.getHeight()/2;
-			ballBase.x -= ball.getWidth()/2;
-			ballBase.y -= ball.getHeight()/2;
-			ballOffset.x = 0;
-			ballOffset.y = 0;
-			
-			boundingRad = (box.getWidth()/2);
-			timer.getElement().setAlpha(0.f);
-			addElementToView(timer);
-       }
+			initialiseScene();
        
-       // Update points flash if it's in view
-       if (pointsIndicator.getElement().getAlpha() > 0.f)
-       {
-    	   pointsIndicator.getElement().setAlpha(Math.abs(1.f-(pointsIndicatorOffset/255.f)));
-    	   // This division isn't just for comedic purposes
-    	   pointsIndicator.setPadding(0, (int)(pointsIndicatorOffset/(Globals.screenDimensions.y/(Globals.screenDimensions.y/1.5f))), 0, 0);
-    	   pointsIndicatorOffset+=3;
-       }
+       pointsDisplay();
        
-       // Exit loop if the screen is being held and freeze time hasn't run out
-       if (timerScale > 5 && timerScale < 255 && ballHeight == 0){
-    	   timerScale+=0.7f;
-    	   timer.setTextSize(timerScale/3.f);
-    	   timer.getElement().setAlpha(Math.abs(1.f-(timerScale/255.f)));
-
-    	   return;
-       }
-       else if (timerScale >= 255){
-    		   timerScale = 5;
-    		   if (!correctAnswerPicked)
-    			   updatePoints(-50);
-       }
-       correctAnswerPicked = false;
+       screenFreeze();
        
        
-       // Remove ball from platform if it has gone off the edge
-       if (!boundingCircle(ballOffset.x, ballOffset.y, 0, 0, ball.getWidth()/6, box.getWidth()/2))
-       {
-    	   ballHeight++;
-    	   ball.getElement().setAlpha(Math.abs(1.f-((int)ballHeight*2.5f/255.f)));
-       }
-       
-       // If ball is still on the platform, update the velocity. Otherwise, decrease it for falling effect
-       if (ballHeight == 0)
-       {
-	       double accX = AccelerometerManager.getX();
-	       double accY = AccelerometerManager.getY();
-	
-	       accX *= 1.f-(accX/Globals.screenDimensions.x);
-	       accY *= 1.f-(accY/Globals.screenDimensions.y);
-	       
-	       velocity.x += accX/36;
-	       velocity.y += accY/36;
-       }
-       else if (ball.getWidth() > 5){
-    	   ball.setAbsScaleX(ball.getWidth()-1);
-    	   
-    	   velocity.x -= velocity.x/(50-Math.min(ballHeight, 20));
-    	   velocity.y -= velocity.y/(50-Math.min(ballHeight, 20));
-       }
-       // Once the ball has fallen for so long, reset it.
-       if (ballHeight > 100)
-       {
-    	   ballBase.x = 0;
-    	   updatePoints(-150);
-       }
-       
-       
-       //Update ball
-       ballOffset.x -= velocity.x;
-       ballOffset.y += velocity.y;
-       ball.getElement().setPadding((int)((ballBase.x) + ballOffset.x), (int)((ballBase.y) + ballOffset.y), 0, 0);
-       //handler.postDelayed(this, 16);
+       updatePhysics();
      }
    
    };
@@ -175,7 +180,7 @@ public class SceneMain extends Scene{
    
    private void helpNext(){
 	   
-	   help.setText(helpText[++helpIndex]);
+	   textHelp.setText(helpText[++helpIndex]);
 	   
 	   if (helpIndex == 0){
 		   buttonLeft.getElement().setAlpha(0.f);
@@ -188,14 +193,14 @@ public class SceneMain extends Scene{
 	   
 	   
 	   if (helpIndex > 5){
-		   buttonRight.getElement().setAlpha(0.f);
-		   buttonRight.getElement().setEnabled(false);
+		  // buttonRight.getElement().setAlpha(0.f);
+		   //buttonRight.getElement().setEnabled(false);
 	   }
 	   
 	   if (helpIndex > 6){
 		   
-		   addElementToView(box);
-	       addElementToView(ball);
+		   addElementToView(imagePlatform);
+	       addElementToView(imageBall);
 	       addElementToView(textPoints);
 
 	       addElementToView(textMain);
@@ -203,6 +208,9 @@ public class SceneMain extends Scene{
 		   
 	       buttonLeft.getElement().setAlpha(0.f);
 	       buttonLeft.getElement().setEnabled(false);
+	       
+	       buttonRight.getElement().setAlpha(0.f);
+		   buttonRight.getElement().setEnabled(false);
 	       
 	       missionSetup();
 
@@ -217,7 +225,7 @@ public class SceneMain extends Scene{
 	   }
 	   buttonRight.getElement().setAlpha(1.f);
        buttonRight.getElement().setEnabled(true);
-	   help.setText(helpText[--helpIndex]);
+	   textHelp.setText(helpText[--helpIndex]);
    }
    
    private void setButtonHandlers(){
@@ -236,97 +244,94 @@ public class SceneMain extends Scene{
 	   });
    }
    
-   int currentMission = -1;
-   boolean missionCompletion[] = new boolean[6];
-   long missionCompletionTimes[] = new long[6];
-   long missionStartTimes[] = new long[6];
+   
+   
+   private TextObject textMain;
+   private TextObject pointsIndicator;
+   private TextObject textHelp;
+   private TextObject textTimer;
+   private TextObject textPoints;
+   
+   private ImageObject imagePlatform;
+   private ImageObject imageBall;
+   
+   private ButtonObject buttonLeft;
+   private ButtonObject buttonRight;
+   
+   private int currentMission = -1;
+   
+   private float pointsIndicatorOffset = 0;
+   private float timerScale = 5;
+   private long missionCompletionTimes[] = new long[6];
+   private long missionStartTimes[] = new long[6];
+   private boolean missionCompletion[] = new boolean[6];
+   
    private Random random = new Random();
-   
-   float timerScale = 5;
-   
-   public TextObject textMain;
-   ImageObject ball;
-   TextObject timer;
-   TextObject textPoints;
-   public ImageObject box;
-   TextObject pointsIndicator;
-   
-   vec2 pointsIndicatorBase = new vec2();
-   float pointsIndicatorOffset = 0;
-   
-   TextObject help;
-   ButtonObject buttonLeft;
-   ButtonObject buttonRight;
+
+   private List<String> missionTitles = new ArrayList<String>();
    
    public SceneMain(int idIn, Activity a, boolean visible) {
      super(idIn, a, visible);
      
      textMain = new TextObject("This is going to be a question", a, Globals.newId());
-     textMain.setTextSize(Globals.getTextSize()*2.5f);
+     textMain.setTextSize(Globals.screenDimensions.x/22.f);
      textMain.setGravity(Gravity.CENTER);
      textMain.getElement().setPaintFlags(Paint.FAKE_BOLD_TEXT_FLAG);
      textMain.getElement().setPadding(Globals.screenDimensions.x/20, 0, Globals.screenDimensions.x/20,0);
      textMain.alignToTop();
      textMain.setColour(Colour.FromRGB(255, 255, 255));
-     
-     ball = new ImageObject(R.drawable.ball, a, Globals.newId(), false);
-     ball.alignToLeft();
-     ball.alignToTop();
-     ball.getElement().setAlpha(0.f);
-     
-     
-     help = new TextObject("THIS IS THE FIRST SCREEN", a, Globals.newId());
-     
-     if (NfcHelper.mNfcAdapter == null)
-    	 help.setText("This device does not support NFC.");
-     else if (!NfcHelper.mNfcAdapter.isEnabled())
-    	 help.setText("Enable NFC in your settings to play.");
-     else
-    	 help.setText("Press the arrow to proceed.");
-     
-     help.setTextSize(Globals.getTextSize()*3.5f);
-     help.setColour(Colour.FromRGB(255, 255, 255));
-     help.getElement().setPadding(Globals.screenDimensions.x/20, 0, Globals.screenDimensions.x/20,0);
-     
-     help.setGravity(Gravity.CENTER);
-     help.getElement().setPaintFlags(Paint.FAKE_BOLD_TEXT_FLAG);
-     addElementToView(help);
-     
-     box = new ImageObject(R.drawable.circle, a, Globals.newId(), false);
-     box.setAbsScaleX((int)(Globals.screenDimensions.x/1.5f));
-     box.setMargins(0, Globals.screenDimensions.y/16, 0, Globals.screenDimensions.y/16);
-     box.alignToBottom();
-     //textMain.addRule(RelativeLayout.ABOVE, box.getId());
      textMain.setMargins(0, Globals.screenDimensions.y/8, 0, Globals.screenDimensions.y/24);
+     
+     imageBall = new ImageObject(R.drawable.ball, a, Globals.newId(), false);
+     imageBall.alignToLeft();
+     imageBall.alignToTop();
+     imageBall.getElement().setAlpha(0.f);
+
+     if (NfcHelper.mNfcAdapter == null)
+    	 textHelp.setText("This device does not support NFC.");
+     else if (!NfcHelper.mNfcAdapter.isEnabled())
+    	 textHelp.setText("Enable NFC in your settings to play.");
+     else
+    	 textHelp.setText("Press the arrow to proceed.");
+     
+     textHelp.setTextSize(Globals.screenDimensions.y/18.f);
+     textHelp.setColour(Colour.FromRGB(255, 255, 255));
+     textHelp.getElement().setPadding(Globals.screenDimensions.x/20, 0, Globals.screenDimensions.x/20,0);
+     
+     textHelp.setGravity(Gravity.CENTER);
+     textHelp.getElement().setPaintFlags(Paint.FAKE_BOLD_TEXT_FLAG);
+     textHelp.addRule(RelativeLayout.ABOVE, buttonLeft.getId());
+     addElementToView(textHelp);
+     
+     imagePlatform = new ImageObject(R.drawable.circle, a, Globals.newId(), false);
+     imagePlatform.setAbsScaleX((int)(Globals.screenDimensions.x/1.5f));
+     imagePlatform.setMargins(0, Globals.screenDimensions.y/16, 0, Globals.screenDimensions.y/16);
+     imagePlatform.alignToBottom();
      
      buttonLeft = new ButtonObject("<", a, Globals.newId());
      buttonRight = new ButtonObject(">", a, Globals.newId());
      
      buttonLeft.alignToLeft();
-     buttonRight.alignToRight();
      buttonLeft.alignToBottom();
-     buttonRight.alignToBottom();
      buttonLeft.getLayoutParams().setMargins(Globals.screenDimensions.x/10, 0, 0, Globals.screenDimensions.y/10);
+     
+     buttonRight.alignToRight();
+     buttonRight.alignToBottom();
      buttonRight.getLayoutParams().setMargins(0, 0, Globals.screenDimensions.x/10, Globals.screenDimensions.y/10);
     
-     help.addRule(RelativeLayout.ABOVE, buttonLeft.getId());
+     
      
      buttonLeft.getElement().setTextColor(Colour.FromRGB(255, 255, 255));
      buttonRight.getElement().setTextColor(Colour.FromRGB(255, 255, 255));
      setButtonHandlers();
-     
-     
-     
-     
-     
-     timer = new TextObject("FREEZE", a, Globals.newId());
-     //timer.getElement().setScaleType(ScaleType.CENTER_CROP);
-     timer.setTextSize(timerScale);
-     timer.getElement().setAlpha(0.f);
-     timer.setColour(Colour.FromRGB(255, 255, 255));
+
+     textTimer = new TextObject("FREEZE", a, Globals.newId());
+     textTimer.setTextSize(timerScale);
+     textTimer.getElement().setAlpha(0.f);
+     textTimer.setColour(Colour.FromRGB(255, 255, 255));
      
      textPoints = new TextObject("Points: " + 0, a, Globals.newId());
-     textPoints.setTextSize(Globals.getTextSize()*0.7f);
+     textPoints.setTextSize(Globals.screenDimensions.x/40.f);
      textPoints.alignToRight();
      textPoints.alignToTop();
      textPoints.setColour(Colour.FromRGB(255, 255, 255));
@@ -336,13 +341,7 @@ public class SceneMain extends Scene{
      pointsIndicator.alignToTop();
      pointsIndicator.getElement().setAlpha(0.f);
      pointsIndicator.setMargins(0, Globals.screenDimensions.y/24, 0, 0);
-     pointsIndicator.setTextSize(Globals.getTextSize()*2.2f);
-     
-     
-     //ball.getElement().setPadding((int)ballBase.x, (int)ballBase.y, 0, 0);
-     
-     
-     //handler.postDelayed(runnable, 0);
+     pointsIndicator.setTextSize(Globals.screenDimensions.x/28.f);
      
      Timer myTimer = new Timer();
      myTimer.schedule(new TimerTask() {
@@ -380,17 +379,15 @@ public class SceneMain extends Scene{
 
    public void ScreenReleased(){
 	   timerScale = 5;
-	   timer.setTextSize(timerScale);
-	   if (timer.getElement().getAlpha() > 0.1f && !correctAnswerPicked)
+	   textTimer.setTextSize(timerScale);
+	   if (textTimer.getElement().getAlpha() > 0.1f && !correctAnswerPicked)
 		   updatePoints(-50.f);
-	   timer.getElement().setAlpha(0.f);
-	   
-	   //timer.setScale(timerScale, timerScale);
+	   textTimer.getElement().setAlpha(0.f);
    }
    
    boolean allComplete = false;
    
-   List<String> missionTitles = new ArrayList<String>();
+   
    
    private void missionSetup()
    {
@@ -407,7 +404,7 @@ public class SceneMain extends Scene{
      }
      
      if (allComplete){
-    	 textMain.setTextSize(Globals.getTextSize()*1.5f);
+    	 textMain.setTextSize(Globals.screenDimensions.x/36.f);
     	 textMain.setText("All questions answered!\nYour times are ...\n\n");	
     	 long totalTime = 0;
     	 for (int i = 0; i < 6; i++){
@@ -428,6 +425,7 @@ public class SceneMain extends Scene{
     		 allComplete = true;
     		 textMain.append("\n\nTime bonus!\n+" + (int)bonus + " points!");
     	 }
+    	 textMain.append("\n\nTotal points: " + points);
        return;
      }
      
@@ -460,6 +458,7 @@ public class SceneMain extends Scene{
 		   Toast.makeText((Context)a, "Wrong answer!", Toast.LENGTH_LONG).show();
 		   updatePoints(-50);
 	   }
+	   else { }
    }
    
    private int helpIndex = -1;
@@ -471,7 +470,7 @@ public class SceneMain extends Scene{
 		   "Hold the screen to freeze the ball for up to five seconds",
 		   "You will gain points for correct answers, and lose them for incorrect answers",
 		   "You will lose points for freezing the ball to answer a question incorrectly",
-		   "Hold your device flat and scan the start tag to play",
+		   "Hold your device flat and begin!",
 		   ""
    };
    private String missionNames[] = {

@@ -32,7 +32,7 @@ public class MainActivity extends NfcSceneActivity {
 	            new int[] {Colour.FromRGB(110, 145, 255), Colour.FromRGB(255, 110, 228)});
 	    gd.setCornerRadius(0f);
 	    this.getLayout().get().setBackgroundDrawable(gd);
-		//layout.setContentView();
+
 		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 		this.requestWindowFeature(Window.FEATURE_NO_TITLE); 
 		Globals.Init(this);
@@ -44,29 +44,6 @@ public class MainActivity extends NfcSceneActivity {
 		InitScenes();
 		
 		SetScreenState(sceneMain);
-		
-
-	    
-
-	    
-
-	    this.getLayout().get().setOnTouchListener(new OnTouchListener(){
-			public boolean onTouchEvent(View v, MotionEvent event) {
-				
-				if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
-						sceneMain.textMain.setText("TOUCH " + ++touchCount);
-				    } else if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
-				    	sceneMain.textMain.setText("RELEASE " + touchCount);
-				    }
-				return false;
-			}
-
-			@Override
-			public boolean onTouch(View v, MotionEvent event) {
-				// TODO Auto-generated method stub
-				return false;
-			}
-	    });
 	}
 	
 	@Override
@@ -81,10 +58,7 @@ public class MainActivity extends NfcSceneActivity {
         return super.onTouchEvent(event);
     }
 	
-	int touchCount = 0;
 	protected void handleNfcScanned(String in, Activity a){ // Called from 'handleIntent' if intent is NFC.
-		//Toast.makeText((Context)a, in, Toast.LENGTH_LONG).show();
-		
 		sceneMain.NfcScanned(in, a);
 	}
 	
